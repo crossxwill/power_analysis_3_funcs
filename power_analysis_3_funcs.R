@@ -7,8 +7,9 @@ library(pwr)
 ### 3 functions to calculate CI for a proportion -------
 
 list_of_functions <- list(binconf="Hmisc::binconf", 
-                           prop.test="prop.test",
-                           binom.test="binom.test")
+                          prop.test="prop.test",
+                          binom.test="binom.test",
+                          AAC.test="DescTools::BinomCI")
 
 ### Execute 3 functions on a simulated data set -------
 
@@ -30,6 +31,12 @@ sim_one_data_set <- function(seed, nobs=100, p=0.05,
       
       out <- out %>% 
         select(Lower, Upper, Type)
+    } else if(f=="DescTools::BinomCI") {
+      out <- f_func(x=sum(x), n=length(x), conf.level = 1 - alpha, method="agresti-coull")
+      
+      out <- data.frame(Lower=out[2], Upper=out[3])
+      
+      out$Type = f
     } else {
       out <- f_func(x=sum(x), n=length(x), conf.level = 1 - alpha)
       
@@ -55,11 +62,14 @@ sim_many_df <- bind_rows(sim_many_datasets_CI)
 ### If the CI includes 0.15, then a Type 2 Error is committed
 
 sim_many_df %>% 
-  mutate(Type2Error = Upper >= 0.15) %>% 
+  mutate(Type2Error = Upper >= 0.15,
+         CoversTrueP = Lower <= 0.05 & Upper >= 0.05) %>% 
   group_by(Type) %>% 
   summarize(TotErrors = sum(Type2Error),
+            TotCovers = sum(CoversTrueP),
             TotTests = n(),
-            Power = 1 - TotErrors / TotTests)
+            Power = 1 - TotErrors / TotTests,
+            CoverageProb = TotCovers / TotTests)
 
 ### binom.test() has the highest power!!!!!!
 
